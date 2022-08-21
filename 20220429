@@ -1,0 +1,331 @@
+# Individual Assignment 2 - Machine Learning
+# BUMK 746
+
+# Overview
+# In this assignment, you will perform classification and regression analysis using the machine learning methods covered in class. This is an individual assignment. You are not supposed to discuss the problems with any other students.
+# The datasets are provided to you in two excel files, "reviewer_withavg.csv" and "bank-fullshuffled.csv", available on ELMS.
+
+# Preparation
+# You will use R for this assignment. In order to successfully complete the assignment, please ensure you understand the R code that accompanies the class lectures. You should have the following packages installed to run the R code covered in class and/or for your project: class, klaR, e1071, rpart, randomForest, leaps, lars, MASS. 
+
+# Check the packages
+library(MASS)
+library(class)
+library(klaR)
+library(e1071)
+library(rpart)
+library(randomForest)
+library(leaps)
+library(lars)
+# Upload the file
+getwd()
+bank=read.csv("bank-full-shuffled.csv",header=TRUE, sep=";")
+reviewer=read.csv("reviewer_withavg.csv",header=TRUE)
+
+# Part I: Classification using k-NN, Na??ve Bayes, and SVM
+# In this part of the assignment, you will use the reviewer dataset. First, create a column "Popular" in the dataset. Any reviewer who is Top10, Top50, or Top100 is considered popular. That is, set Popular to 1 if any of Top10, Top50, or Top100 is 1, and 0 otherwise.
+# The task is to classify a reviewer as either Popular or not Popular, using the four characteristics of the reviewer as shown in class: avg_centrality, avg_content, avg_viewership, avg_enhconent. You will use the first 50 records as the testing dataset, and the last 149 records as the training dataset. You will evaluate three classification methods: k-NN, Na??ve Bayes, and SVM. For k-NN, you need to test values for k between 1 and 10. For SVM, you will test both linear and polynomial kernels. 
+
+# Add new variable
+reviewer$Popular[reviewer$Top10==1 | reviewer$Top50==1 |reviewer$Top100==1]=1
+reviewer$Popular[is.na(reviewer$Popular)]=0
+# Divide the data
+reviewer_train = reviewer[51:199,]
+reviewer_test = reviewer[1:50,]
+# X: only use these variables as input: avg_centrality, avg_content, avg_viewership, avg_enhconent
+rx_train = cbind(reviewer_train$avg_centrality,reviewer_train$avg_content, reviewer_train$avg_viewership, reviewer_train$avg_enhcontent)
+rx_test = cbind(reviewer_test$avg_centrality,reviewer_test$avg_content, reviewer_test$avg_viewership, reviewer_test$avg_enhcontent)
+# Y: Popular
+ry_train = reviewer_train$Popular
+ry_test = reviewer_test$Popular
+
+# Please answer the following questions:
+# Q1.1: For k-NN, which k value minimizes classification error in the training dataset? What is the error count?
+err_by_k11 = rep(0, 10)
+for(k in 1:10) {
+  res11 = knn(rx_train, rx_train, ry_train, k = k, prob=TRUE)
+  err_by_k11[k] = sum(abs(as.numeric(res11)-1-ry_train))
+}
+cbind(seq(1,10), err_by_k11)
+# k=1
+# Error Count: 0
+
+# Q1.2: For k-NN, which k value minimizes classification error in the testing dataset? What is the error count?
+err_by_k12 = rep(0, 10)
+for(k in 1:10) {
+  res12 = knn(rx_train, rx_test, ry_train, k = k, prob=TRUE)
+  err_by_k12[k] = sum(abs(as.numeric(res12)-1-ry_test))
+}
+cbind(seq(1,10), err_by_k12)
+# k= 3 or 9
+# Error Count: 7
+
+# Q1.3: For Naive Bayes, what is the error count for the testing dataset?
+reviewer13=reviewer
+reviewer13[["avg_viewership"]] = reviewer13[["avg_viewership"]]/sd(reviewer13[["avg_viewership"]])
+reviewer13[["avg_content"]] = reviewer13[["avg_content"]]/sd(reviewer13[["avg_content"]])
+reviewer13[["avg_centrality"]] = reviewer13[["avg_centrality"]]/sd(reviewer13[["avg_centrality"]])
+reviewer13[["avg_enhcontent"]] = reviewer13[["avg_enhcontent"]]/sd(reviewer13[["avg_enhcontent"]])
+reviewer13[["Popular"]] = as.factor(reviewer13[["Popular"]])
+reviewer_train13 = reviewer13[51:199,]
+reviewer_test13 = reviewer13[1:50,]
+res13=NaiveBayes(Popular~avg_centrality+avg_content+avg_viewership+avg_enhcontent, data=reviewer_train13)
+pred13 = predict(res13, reviewer_test13)
+cbind(as.numeric(pred13$class)-1, as.numeric(reviewer_test13$Popular)-1)
+err13 = sum(abs(as.numeric(pred13$class)-as.numeric(reviewer_test13$Popular)))
+err13
+# Error Count: 7
+
+# Q1.4: For SVM, what are the error counts for the training dataset using linear and polynomial kernels, respectively?
+# Clean the data
+reviewer14=reviewer
+reviewer14[["avg_viewership"]] = reviewer14[["avg_viewership"]]/sd(reviewer14[["avg_viewership"]])
+reviewer14[["avg_content"]] = reviewer14[["avg_content"]]/sd(reviewer14[["avg_content"]])
+reviewer14[["avg_centrality"]] = reviewer14[["avg_centrality"]]/sd(reviewer14[["avg_centrality"]])
+reviewer14[["avg_enhcontent"]] = reviewer14[["avg_enhcontent"]]/sd(reviewer14[["avg_enhcontent"]])
+reviewer_train14 = reviewer14[51:199,]
+reviewer_test14 = reviewer14[1:50,]
+rx_train14 = cbind(reviewer_train14$avg_centrality,reviewer_train14$avg_content, reviewer_train14$avg_viewership, reviewer_train14$avg_enhcontent)
+rx_test14 = cbind(reviewer_test14$avg_centrality,reviewer_test14$avg_content, reviewer_test14$avg_viewership, reviewer_test14$avg_enhcontent)
+ry_train14 = reviewer_train14$Popular
+ry_test14 = reviewer_test14$Popular
+# For linear
+res141 = svm(rx_train14, as.factor(reviewer_train14$Popular), kernel = "linear")
+pred141 = predict(res141, rx_train14)
+cbind(as.numeric(pred141)-1, reviewer_train14$Popular)
+err141 = sum(abs(as.numeric(pred141)-1-reviewer_train14$Popular))
+err141
+# Error Count for linear: 9
+
+# For polynomial
+res142 = svm(rx_train14, as.factor(reviewer_train14$Popular), kernel = "polynomial")
+pred142 = predict(res142, rx_train14)
+cbind(as.numeric(pred142)-1, reviewer_train14$Popular)
+err142 = sum(abs(as.numeric(pred142)-1-reviewer_train14$Popular))
+err142
+# Error Count for polynomial: 18
+
+# Q1.5: For SVM, what are the error counts for the testing dataset using linear and polynomial kernels, respectively?
+# Clean the data
+reviewer15=reviewer
+reviewer15[["avg_viewership"]] = reviewer15[["avg_viewership"]]/sd(reviewer15[["avg_viewership"]])
+reviewer15[["avg_content"]] = reviewer15[["avg_content"]]/sd(reviewer15[["avg_content"]])
+reviewer15[["avg_centrality"]] = reviewer15[["avg_centrality"]]/sd(reviewer15[["avg_centrality"]])
+reviewer15[["avg_enhcontent"]] = reviewer15[["avg_enhcontent"]]/sd(reviewer15[["avg_enhcontent"]])
+reviewer_train15 = reviewer15[51:199,]
+reviewer_test15 = reviewer15[1:50,]
+rx_train15 = cbind(reviewer_train15$avg_centrality,reviewer_train15$avg_content, reviewer_train15$avg_viewership, reviewer_train15$avg_enhcontent)
+rx_test15 = cbind(reviewer_test15$avg_centrality,reviewer_test15$avg_content, reviewer_test15$avg_viewership, reviewer_test15$avg_enhcontent)
+ry_train15 = reviewer_train15$Popular
+ry_test15 = reviewer_test15$Popular
+# For linear
+res151 = svm(rx_train15, as.factor(reviewer_train15$Popular), kernel = "linear")
+pred151 = predict(res151, rx_test15)
+cbind(as.numeric(pred151)-1, reviewer_test15$Popular)
+err151 = sum(abs(as.numeric(pred151)-1-reviewer_test15$Popular))
+err151
+# Error Count for linear: 6
+
+# For polynomial
+res152 = svm(rx_train15, as.factor(reviewer_train15$Popular), kernel = "polynomial")
+pred152 = predict(res152, rx_test15)
+cbind(as.numeric(pred152)-1, reviewer_test15$Popular)
+err152 = sum(abs(as.numeric(pred152)-1-reviewer_test15$Popular))
+err152
+# Error Count for polynomial: 8
+
+# Q1.6: Judging by error count, which of the above algorithms has the best performance?
+# 6(SVM-linear)< 7(kNN)= 7(NB)< 8(SVM-polynomial)
+# SVM with linear kernels has the best performance, which has the lowest error count in testing dataset.
+
+# Part II: Classification using Tree and Random Forest
+# In this part of the assignment, you will use a reshuffled bank dataset. The name of the data file is "bank-full-shuffled.csv". (This file contains the same set of records as the file we used in class, but in different orders.) You will use the first 80% of the records as the training dataset, and the remaining 20% as the testing dataset. 
+# The task is to predict the variable "y" (valued "yes" or "no"), using the following characteristics: duration, month, poutcome, job, education, and marital. Please perform the following tasks and answer the corresponding questions:
+
+# Divide the data
+bank_train = bank[1:floor(0.8 * nrow(bank)),]
+bank_test = bank[(floor(0.8 * nrow(bank))+1):nrow(bank),]
+
+# Q2.1: Fit a classification tree to predict y using the list of characteristics specified above. Use cp=0.0001. Please report the confusion matrices and the F1 scores for the training dataset and that for the testing dataset.
+set.seed(123)  
+tfit21 = rpart(y ~ duration+month+poutcome+job+education+marital, data = bank_train, method = 'class', parms = list(split = 'information'), control=rpart.control(cp=0.0001))
+# For the Training Dataset
+pred21_train = predict(tfit21, bank_train, type="class")
+# Confusion Matrices for the Training Dataset
+table(pred21_train, bank_train$y)
+f1score21_train = function(pred21_train, actual) {
+  res21_train = table(pred21_train, actual)
+  precision21_train = res21_train[2,2]/(res21_train[2,2]+res21_train[2,1])
+  recall21_train = res21_train[2,2]/(res21_train[2,2]+res21_train[1,2])
+  f1_21_train = 2/(1/precision21_train+1/recall21_train)
+  return(f1_21_train)
+}
+res21_train = table(pred21_train, bank_train$y)
+precision21_train = res21_train[2,2]/(res21_train[2,2]+res21_train[2,1])
+recall21_train = res21_train[2,2]/(res21_train[2,2]+res21_train[1,2])
+precision21_train
+recall21_train
+# F1 Scores for the Training Dataset 
+f1score21_train(pred21_train, bank_train$y)
+# For the Testing Dataset
+pred21_test = predict(tfit21, bank_test, type="class")
+# Confusion Matrices for the Testing Dataset
+table(pred21_test, bank_test$y)
+f1score21_test = function(pred21_test, actual) {
+  res21_test = table(pred21_test, actual)
+  precision21_test = res21_test[2,2]/(res21_test[2,2]+res21_test[2,1])
+  recall21_test = res21_test[2,2]/(res21_test[2,2]+res21_test[1,2])
+  f1_21_test = 2/(1/precision21_test+1/recall21_test)
+  return(f1_21_test)
+}
+res21_test = table(pred21_test, bank_test$y)
+precision21_test = res21_test[2,2]/(res21_test[2,2]+res21_test[2,1])
+recall21_test = res21_test[2,2]/(res21_test[2,2]+res21_test[1,2])
+precision21_test
+recall21_test
+# F1 Scores for the Testing Dataset 
+f1score21_test(pred21_test, bank_test$y)
+
+# Q2.2: Prune the tree fitted in the previous step. What complexity parameter should you set? Why? 
+# (Please show evidence to support your answer.) Please report the confusion matrices and the F1 scores of the pruned tree for the training and testing datasets. How does the predictive performance of the pruned tree compare with that of the original tree?
+set.seed(123)  
+tfit22 = rpart(y ~ duration+month+poutcome+job+education+marital, data = bank_train, method = 'class', parms = list(split = 'information'), control=rpart.control(cp=0.0001))
+# Find Best CP
+printcp(tfit22)
+plotcp(tfit22)
+# CP=0.00165955(xstd=0.013316, which is the lowest) is the best.
+# Use New CP
+set.seed(123)  
+tfit22 = rpart(y ~ duration+month+poutcome+job+education+marital, data = bank_train, method = 'class', parms = list(split = 'information'), control=rpart.control(cp=0.00165955))
+# For the Training Dataset
+pred22_train = predict(tfit22, bank_train, type="class")
+# Confusion Matrices for the Training Dataset
+table(pred22_train, bank_train$y)
+f1score22_train = function(pred22_train, actual) {
+  res22_train = table(pred22_train, actual)
+  precision22_train = res22_train[2,2]/(res22_train[2,2]+res22_train[2,1])
+  recall22_train = res22_train[2,2]/(res22_train[2,2]+res22_train[1,2])
+  f1_22_train = 2/(1/precision22_train+1/recall22_train)
+  return(f1_22_train)
+}
+res22_train = table(pred22_train, bank_train$y)
+precision22_train = res22_train[2,2]/(res22_train[2,2]+res22_train[2,1])
+recall22_train = res22_train[2,2]/(res22_train[2,2]+res22_train[1,2])
+precision22_train
+recall22_train
+# F1 Scores for the Training Dataset 
+f1score22_train(pred22_train, bank_train$y)
+# For the Testing Dataset
+pred22_test = predict(tfit22, bank_test, type="class")
+# Confusion Matrices for the Testing Dataset
+table(pred22_test, bank_test$y)
+f1score22_test = function(pred22_test, actual) {
+  res22_test = table(pred22_test, actual)
+  precision22_test = res22_test[2,2]/(res22_test[2,2]+res22_test[2,1])
+  recall22_test = res22_test[2,2]/(res22_test[2,2]+res22_test[1,2])
+  f1_22_test = 2/(1/precision22_test+1/recall22_test)
+  return(f1_22_test)
+}
+res22_test = table(pred22_test, bank_test$y)
+precision22_test = res22_test[2,2]/(res22_test[2,2]+res22_test[2,1])
+recall22_test = res22_test[2,2]/(res22_test[2,2]+res22_test[1,2])
+precision22_test
+recall22_test
+# F1 Scores for the Testing Dataset 
+f1score22_test(pred22_test, bank_test$y)
+# 0.4786996(F1 Scores for the Testing Dataset with new CP)>0.4708995(F1 Scores for the Testing Dataset with old CP)
+# The predictive performance of the pruned tree compare with that of the original tree is better.
+
+# Q2.3: Fit a random forest to predict the same, using 50 trees. Please report the confusion matrices and the F1 scores for the training and testing datasets. How does the predictive performance compare with that of the original and the pruned tree? What are the two most important independent variables?
+# Clean the data
+bank23=bank
+bank23[["y"]] = as.factor(bank23[["y"]])
+# Divide the data
+bank23_train = bank23[1:floor(0.8 * nrow(bank23)),]
+bank23_test = bank23[(floor(0.8 * nrow(bank23))+1):nrow(bank23),]
+# Fit a Random Forest
+rffit23 = randomForest(y ~ duration+month+poutcome+job+education+marital, data = bank23_train, importance = TRUE, na.action=na.omit, ntree = 50)
+varImpPlot(rffit23)
+# For the Training Dataset
+pred23_train = predict(rffit23, bank23_train)
+# Confusion Matrices for the Training Dataset
+table(pred23_train, bank23_train$y)
+f1score23_train = function(pred23_train, actual) {
+  res23_train = table(pred23_train, actual)
+  precision23_train = res23_train[2,2]/(res23_train[2,2]+res23_train[2,1])
+  recall23_train = res23_train[2,2]/(res23_train[2,2]+res23_train[1,2])
+  f1_23_train = 2/(1/precision23_train+1/recall23_train)
+  return(f1_23_train)
+}
+res23_train = table(pred23_train, bank23_train$y)
+precision23_train = res23_train[2,2]/(res23_train[2,2]+res23_train[2,1])
+recall23_train = res23_train[2,2]/(res23_train[2,2]+res23_train[1,2])
+precision23_train
+recall23_train
+# F1 Scores for the Training Dataset 
+f1score23_train(pred23_train, bank23_train$y)
+# For the Testing Dataset
+pred23_test = predict(rffit23, bank23_test)
+# Confusion Matrices for the Testing Dataset
+table(pred23_test, bank23_test$y)
+f1score23_test = function(pred23_test, actual) {
+  res23_test = table(pred23_test, actual)
+  precision231_test = res23_test[2,2]/(res23_test[2,2]+res23_test[2,1])
+  recall23_test = res23_test[2,2]/(res23_test[2,2]+res23_test[1,2])
+  f1_23_test = 2/(1/precision23_test+1/recall23_test)
+  return(f1_23_test)
+}
+res23_test = table(pred23_test, bank23_test$y)
+precision23_test = res23_test[2,2]/(res23_test[2,2]+res23_test[2,1])
+recall23_test = res23_test[2,2]/(res23_test[2,2]+res23_test[1,2])
+precision23_test
+recall23_test
+# F1 Scores for the Testing Dataset 
+f1score23_test(pred23_test, bank23_test$y)
+
+# 0.4786996(F1 Scores for the Testing Dataset with new CP)>0.4708995(F1 Scores for the Testing Dataset with old CP)>0.4320766(F1 Scores for the Testing Dataset with random forest)
+# The predictive performance of random forest is worse than the original and the pruned tree, which has the lowest F1 score.
+# For MeanDecreaseAccuracy, the two most important independent variables are poutcome and duration.
+# For MeanDecreaseGini, the two most important independent variables are duration and month.
+
+# Important note: Please ensure that you use the shuffled dataset, "bank-full-shuffled.csv", not the file "bank-full.csv" which we used in class. Using the wrong file will lead to incorrect answers.
+
+# Part III: Regression
+# In this part of the assignment, you will use the reviewer dataset, to predict "avg_content" of a reviewer using the following characteristics of the reviewer: avg_centrality, avg_viewership, avg_enhconent, Top10, Top50, Top100, Advisor, Lead. We will use the entire dataset to fit the model.
+# The task is to find out which variables should be included in the regression model for predicting "avg_content". Please use both full model search and forward-stepwise regression for this task. The model selection criterion is Mallow's Cp. Please answer the following questions: 
+# Q3.1: What is the best model according to full model search?
+ry31 = reviewer$avg_content
+rx31 = cbind(reviewer$avg_centrality, reviewer$avg_viewership, reviewer$avg_enhcontent, reviewer$Top10, reviewer$Top50, reviewer$Top100, reviewer$Advisor, reviewer$Lead)
+out31 = leaps(rx31,ry31,method="Cp", nbest = 1)
+print(out31)
+# The best model according to full model search is a model with four variables(avg_centrality, avg_viewership, avg_enhcontent, Advisor), with the lowest CP of 3.389893.
+ 
+# Q3.2: What is the best model according to forward-stepwise regression?
+ry32 = reviewer$avg_content
+rx32 = cbind(reviewer$avg_centrality, reviewer$avg_viewership, reviewer$avg_enhcontent, reviewer$Top10, reviewer$Top50, reviewer$Top100, reviewer$Advisor, reviewer$Lead)
+res32 = lars(rx32, ry32, type="stepwise")
+print(summary(res32))
+res32
+# The best model according to forward-stepwise regression is a model with four variables(avg_centrality, Advisor, avg_viewership, avg_enhconent), with the lowest CP of  3.3899.
+ 
+# Q3.3: What variables should be included if we want to use only three independent variables? Is the set the same for full model search and for forward-stepwise regression? What variables should be included if we want to use five independent variables?
+
+# For three independent variables, we should choose avg_centrality, Advisor and avg_viewership in full model search.
+# For three independent variables, we should choose avg_centrality, Advisor and avg_viewership in forward-stepwise regression.
+# The set is same for full model search and for forward-stepwise regression.
+
+# For five independent variables, we should choose avg_centrality, Advisor, avg_viewership, avg_enhconent and Lead in full model search.
+# For five independent variables, we should choose avg_centrality, Advisor, avg_viewership, avg_enhconent and Lead in forward-stepwise regression.
+# The set is also same for full model search and for forward-stepwise regression.
+
+# Deliverable
+# Please submit your R code and answers to the questions. Please submit them in a text file (either plain text or Word document is fine), putting the R code in the appendix. 
+
+# Due Date
+# This assignment is due by midnight Friday, April 27, 2022. 
+
+# Grading
+# This assignment is worth 25% of your final grade for the course. Grading will be done based on completeness and correctness.
+
+# Assurance of Learning (AoL)
+# The Robert H. Smith School is accredited by an external agency, AACSB. In order to maintain that accreditation, RHS has to provide proof to the accreditor that our students are able to demonstrate what we have indicated they will upon the completion of their academic degree. The Assurance of Learning Initiative, also known as AoL, is the primary tool that we use to make sure we are equipping students with the skills, knowledge, and behaviors they need to be successful in their future careers. By regularly collecting, assessing, and discussing student learning outcomes data, faculty identify how to adjust their instruction (or curriculum) to more effectively support students. In this assignment's rubric, the criterion captures the information necessary to satisfy the accreditation requirements. Please note that the data gathered is de-identified and will not reflect upon you individually.
